@@ -26,6 +26,7 @@ export default function Game() {
   const [timeLeft, setTimeLeft] = useState(null);
   const [questionTimeLimit, setQuestionTimeLimit] = useState(null);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [socketId, setSocketId] = useState(null);
   
   // Estado para saber si el juego ha iniciado alguna vez
   const [gameHasStarted, setGameHasStarted] = useState(false);
@@ -136,6 +137,14 @@ export default function Game() {
   useEffect(() => {
     const pin = localStorage.getItem("gamePin");
     const username = localStorage.getItem("username");
+
+    // Guardar ID del socket para identificar respuestas propias
+    if (socket.connected) {
+      setSocketId(socket.id);
+    } else {
+      socket.connect();
+      setSocketId(socket.id);
+    }
     
     // Cargar información del personaje seleccionado
     const characterData = localStorage.getItem("selectedCharacter");
@@ -229,16 +238,17 @@ export default function Game() {
       navigate("/");
     });
 
-    // Escuchar confirmación de respuesta
-    socket.on("answer-received", ({ success, message }) => {
-      setIsSubmitting(false);
-      if (success) {
-        setSubmissionStatus('success');
-        setShowSuccessAnimation(true);
-        setTimeout(() => setShowSuccessAnimation(false), 2000);
-      } else {
-        setSubmissionStatus('error');
-        setTimeout(() => setSubmissionStatus(null), 3000);
+    // Escuchar confirmación de respuesta propia
+    socket.on("player-answered", ({ playerId, isCorrect }) => {
+      if (playerId === socketId) {
+        setIsSubmitting(false);
+        setSubmissionStatus(isCorrect ? 'success' : 'error');
+        setShowSuccessAnimation(isCorrect);
+        if (isCorrect) {
+          setTimeout(() => setShowSuccessAnimation(false), 2000);
+        } else {
+          setTimeout(() => setSubmissionStatus(null), 3000);
+        }
       }
     });
 
@@ -247,7 +257,7 @@ export default function Game() {
       socket.off("next-question");
       socket.off("game-ended");
       socket.off("game-cancelled");
-      socket.off("answer-received");
+      socket.off("player-answered");
     };
   }, [navigate]);
 

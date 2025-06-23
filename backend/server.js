@@ -34,6 +34,9 @@ mongoose
 
 const generatePin = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
+// Almacenar los timers de cada partida para poder cancelarlos
+const questionTimers = new Map();
+
 const registerTimeoutAnswer = async (game, playerId) => {
   try {
     const player = game.players.find(p => p.id === playerId);
@@ -71,6 +74,17 @@ const processTimeouts = async (game) => {
   }
 };
 
+// Verificar si todos los jugadores respondieron la pregunta actual
+const haveAllPlayersAnswered = (game) => {
+  if (game.currentQuestion < 0 || game.currentQuestion >= game.questions.length) {
+    return false;
+  }
+  const currentQuestionId = game.questions[game.currentQuestion]._id.toString();
+  return game.players.every(player =>
+    player.answers.some(a => a.questionId.toString() === currentQuestionId)
+  );
+};
+
 // Definir emitQuestion como una función independiente
 const emitQuestion = async (game, questionIndex) => {
   if (questionIndex >= game.questions.length) {
@@ -87,7 +101,7 @@ const emitQuestion = async (game, questionIndex) => {
     timeLimit: game.timeLimitPerQuestion / 1000,
   });
 
-  setTimeout(async () => {
+  const timer = setTimeout(async () => {
     const updatedGame = await Game.findById(game._id).populate("questions");
     if (updatedGame && updatedGame.status === "playing") {
       await processTimeouts(updatedGame); // Procesar timeouts
@@ -95,7 +109,9 @@ const emitQuestion = async (game, questionIndex) => {
       await updatedGame.save();
       emitQuestion(updatedGame, updatedGame.currentQuestion); // Llamada recursiva
     }
+    questionTimers.delete(game.pin);
   }, game.timeLimitPerQuestion);
+  questionTimers.set(game.pin, timer);
 };
 
 io.on("connection", (socket) => {
@@ -336,6 +352,17 @@ io.on("connection", (socket) => {
         pointsAwarded,
         playerScore: player.score,
       });
+      // Si todos han respondidoa pasa a la siguiente 
+      if (haveAllPlayersAnswered(game)) {
+        const timer = questionTimers.get(pin);
+        if (timer) {
+          clearTimeout(timer);
+          questionTimers.delete(pin);
+        }
+        game.currentQuestion += 1;
+        await game.save();
+        emitQuestion(game, game.currentQuestion);
+      }
     } catch (error) {
       console.error("Error en submit-answer:", error);
       callback({ success: false, error: error.message });
