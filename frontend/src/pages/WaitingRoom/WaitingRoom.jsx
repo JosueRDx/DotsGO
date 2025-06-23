@@ -36,7 +36,7 @@ export default function WaitingRoom() {
         pin: gamePin,
         name: "Aventura de Pictogramas",
         maxPlayers: 50,
-        questionsCount: 10
+        questionsCount: 0
       });
     } catch (error) {
       console.error("Error al cargar datos:", error);
@@ -82,6 +82,10 @@ export default function WaitingRoom() {
       if (data && data.players) {
         setPlayers(data.players);
       }
+      if (data && data.gameInfo) {
+        setGameInfo(data.gameInfo);
+        localStorage.setItem("questionsCount", data.gameInfo.questionsCount);
+      }
     });
 
     socket.on("player-left", (data) => {
@@ -106,6 +110,10 @@ export default function WaitingRoom() {
       if (response && response.success && response.players) {
         console.log("Jugadores obtenidos:", response.players);
         setPlayers(response.players);
+        if (response.gameInfo) {
+          setGameInfo(response.gameInfo);
+          localStorage.setItem("questionsCount", response.gameInfo.questionsCount);
+        }
       } else {
         console.log("No se pudieron obtener los jugadores:", response);
         setPlayers([]);

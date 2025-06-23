@@ -27,6 +27,8 @@ export default function Game() {
   const [questionTimeLimit, setQuestionTimeLimit] = useState(null);
   const [selectedCharacter, setSelectedCharacter] = useState(null);
   const [socketId, setSocketId] = useState(null);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   
   // Estado para saber si el juego ha iniciado alguna vez
   const [gameHasStarted, setGameHasStarted] = useState(false);
@@ -137,6 +139,10 @@ export default function Game() {
   useEffect(() => {
     const pin = localStorage.getItem("gamePin");
     const username = localStorage.getItem("username");
+    const storedCount = localStorage.getItem("questionsCount");
+    if (storedCount) {
+      setTotalQuestions(parseInt(storedCount, 10));
+    }
 
     // Guardar ID del socket para identificar respuestas propias
     if (socket.connected) {
@@ -181,6 +187,8 @@ export default function Game() {
           setQuestion(response.question);
           setTimeLeft(response.timeLeft || 0);
           setQuestionTimeLimit(response.timeLeft || 0);
+          setQuestionIndex(response.currentIndex || 1);
+          setTotalQuestions(response.totalQuestions || totalQuestions);
         } else {
           console.log("⚠ No hay pregunta activa en este momento");
           // Mantener gameHasStarted en true pero sin pregunta
@@ -197,6 +205,8 @@ export default function Game() {
         setQuestion(response.question);
         setTimeLeft(response.timeLeft);
         setQuestionTimeLimit(response.timeLeft);
+        setQuestionIndex(response.currentIndex || 1);
+        setTotalQuestions(response.totalQuestions || totalQuestions);
         setGameHasStarted(true);
         console.log("Pregunta cargada (método respaldo):", response.question);
       } else if (response.error && response.error.includes("No hay juego activo")) {
@@ -205,22 +215,26 @@ export default function Game() {
     });
 
     // Escuchar nueva pregunta (para cuando cambie)
-    socket.on("game-started", ({ question, timeLimit }) => {
+    socket.on("game-started", ({ question, timeLimit, currentIndex, totalQuestions: totalQ }) => {
       console.log("🎯 Nueva pregunta recibida via game-started:", question.title);
       resetGameState();
       setQuestion(question);
       setTimeLeft(timeLimit);
       setQuestionTimeLimit(timeLimit);
+      setQuestionIndex(currentIndex || 1);
+      setTotalQuestions(totalQ || totalQuestions);
       setGameHasStarted(true);
     });
 
     // Escuchar siguiente pregunta
-    socket.on("next-question", ({ question, timeLimit }) => {
+    socket.on("next-question", ({ question, timeLimit, currentIndex, totalQuestions: totalQ }) => {
       console.log("🎯 Siguiente pregunta recibida:", question.title);
       resetGameState();
       setQuestion(question);
       setTimeLeft(timeLimit);
       setQuestionTimeLimit(timeLimit);
+      setQuestionIndex(currentIndex || questionIndex + 1);
+      setTotalQuestions(totalQ || totalQuestions);
       setGameHasStarted(true);
     });
 
@@ -228,6 +242,7 @@ export default function Game() {
       console.log("🏁 Juego terminado, redirigiendo a resultados");
       localStorage.removeItem("selectedCharacter");
       localStorage.removeItem("username");
+      localStorage.removeItem("questionsCount");
       navigate("/game-results", { state: { results } });
     });
 
@@ -235,6 +250,7 @@ export default function Game() {
       alert("El juego ha sido cancelado por el administrador");
       localStorage.removeItem("selectedCharacter");
       localStorage.removeItem("username");
+      localStorage.removeItem("questionsCount");
       navigate("/");
     });
 
@@ -366,7 +382,9 @@ export default function Game() {
       hasSubmitted,
       isSubmitting,
       currentStep,
-      progressPercentage
+      progressPercentage,
+      questionIndex,
+      totalQuestions
     });
   }
 
@@ -421,6 +439,9 @@ export default function Game() {
                         style={{ width: `${progressPercentage}%` }}
                       />
                     </div>
+                  </div>
+                  <div className={styles.questionCount}>
+                    Pregunta {questionIndex} de {totalQuestions}
                   </div>
                 </div>
               )}

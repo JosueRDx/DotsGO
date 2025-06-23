@@ -99,6 +99,8 @@ const emitQuestion = async (game, questionIndex) => {
   io.to(game.pin).emit("game-started", {
     question: question,
     timeLimit: game.timeLimitPerQuestion / 1000,
+    currentIndex: questionIndex + 1,
+    totalQuestions: game.questions.length,
   });
 
   const timer = setTimeout(async () => {
@@ -156,6 +158,8 @@ io.on("connection", (socket) => {
         socket.emit("game-started", {
           question: currentQuestion,
           timeLimit: timeRemaining,
+          currentIndex: game.currentQuestion + 1,
+          totalQuestions: game.questions.length,
         });
       }
       if (game.status === "waiting") {
@@ -491,7 +495,9 @@ io.on("connection", (socket) => {
           return callback({
             success: true,
             question: currentQuestion,
-            timeLeft: timeRemaining
+            timeLeft: timeRemaining,
+            currentIndex: game.currentQuestion + 1,
+            totalQuestions: game.questions.length
           });
         }
       }
@@ -499,7 +505,9 @@ io.on("connection", (socket) => {
       return callback({
         success: true,
         question: null,
-        timeLeft: 0
+        timeLeft: 0,
+        currentIndex: 0,
+        totalQuestions: game.questions.length
       });
     } catch (error) {
       callback({
