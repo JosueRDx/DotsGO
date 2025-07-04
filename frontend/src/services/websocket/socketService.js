@@ -1,6 +1,8 @@
 import { io } from "socket.io-client";
 
-export const socket = io('/', {
+const URL = import.meta.env.VITE_BACKEND_URL || '/';
+
+export const socket = io(URL, {
   autoConnect: false,
   transports: ["websocket"], // Forzar WebSocket
 });
@@ -8,7 +10,7 @@ export const socket = io('/', {
 export const connectSocket = () => {
   if (!socket.connected) {
     socket.connect();
-    console.log("Socket conectado");
+    console.log(`Intentando conectar socket a: ${URL}`);
   } else {
     console.log("Socket ya estaba conectado");
   }

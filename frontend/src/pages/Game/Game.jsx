@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -44,9 +44,15 @@ export default function Game() {
   // Estados para feedback visual
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+    const hasSubmittedRef = useRef(false);
   const [submissionStatus, setSubmissionStatus] = useState(null);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const [progressPercentage, setProgressPercentage] = useState(0);
+
+  // Mantener referencia actualizada de si ya se envió la respuesta
+  useEffect(() => {
+    hasSubmittedRef.current = hasSubmitted;
+  }, [hasSubmitted]);
 
   // Filtrar colores disponibles - incluir solid y pattern
   const availableColorOptions = availableColors.filter(
@@ -217,6 +223,9 @@ export default function Game() {
     // Escuchar nueva pregunta (para cuando cambie)
     socket.on("game-started", ({ question, timeLimit, currentIndex, totalQuestions: totalQ }) => {
       console.log("🎯 Nueva pregunta recibida via game-started:", question.title);
+      if (!hasSubmittedRef.current) {
+        handleAutoSubmit();
+      }
       resetGameState();
       setQuestion(question);
       setTimeLeft(timeLimit);
@@ -229,6 +238,9 @@ export default function Game() {
     // Escuchar siguiente pregunta
     socket.on("next-question", ({ question, timeLimit, currentIndex, totalQuestions: totalQ }) => {
       console.log("🎯 Siguiente pregunta recibida:", question.title);
+      if (!hasSubmittedRef.current) {
+        handleAutoSubmit();
+      }
       resetGameState();
       setQuestion(question);
       setTimeLeft(timeLimit);
@@ -293,6 +305,18 @@ export default function Game() {
     setProgressPercentage(0);
   };
 
+  // Limpiar selección actual sin afectar el estado de envío
+  const clearSelections = () => {
+    if (hasSubmitted) return;
+    setTopColor(null);
+    setBottomColor(null);
+    setSymbol(null);
+    setSymbolPosition(null);
+    setNumber(null);
+    setNumberPosition(null);
+    setCurrentStep(1);
+  };
+
   // Auto-submit cuando se agota el tiempo
   const handleAutoSubmit = () => {
     if (hasSubmitted) return;
@@ -317,10 +341,11 @@ export default function Game() {
 
     console.log("Respuesta auto-enviada (tiempo agotado):", answer);
 
-    socket.emit("submit-answer", { 
+    socket.emit("submit-answer", {
       pin: pin,
       answer: answer,
-      responseTime: responseTime
+      responseTime: responseTime,
+      questionId: question?._id
     }, (response) => {
       if (response.success) {
         console.log("Respuesta (auto) recibida por el servidor:", response);
@@ -358,7 +383,8 @@ export default function Game() {
     socket.emit("submit-answer", {
       pin: pin,
       answer: answer,
-      responseTime: responseTime
+      responseTime: responseTime,
+      questionId: question?._id
     }, (response) => {
       if (response.success) {
         console.log("Respuesta recibida por el servidor:", response);
@@ -557,7 +583,7 @@ export default function Game() {
                   <button
                     className={`${styles.submitButton} ${
                       canSubmit() ? styles.canSubmit : styles.cannotSubmit
-                    }`}
+                    } ${isSubmitting ? styles.waiting : ''}`}
                     onClick={submitAnswer}
                     disabled={!canSubmit()}
                   >
@@ -570,6 +596,20 @@ export default function Game() {
                       </>
                     )}
                   </button>
+                  <button
+                    className={styles.clearButton}
+                    onClick={clearSelections}
+                    type="button"
+                  >
+                    Limpiar Selección
+                  </button>
+                </div>
+              )}
+
+              {submissionStatus === 'waiting' && (
+                <div className={styles.statusMessage}>
+                  <Clock size={18} />
+                  <span>Esperando a los demás jugadores...</span>
                 </div>
               )}
 

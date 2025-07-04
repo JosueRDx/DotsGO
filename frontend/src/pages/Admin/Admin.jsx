@@ -24,6 +24,8 @@ import personaje4 from "../../assets/images/personajes/4.png";
 import personaje5 from "../../assets/images/personajes/5.png";
 import personaje6 from "../../assets/images/personajes/6.png";
 
+const API_URL = import.meta.env.VITE_BACKEND_URL || '';
+
 export default function Admin() {
   const [activeSection, setActiveSection] = useState('crear-juego');
   const [isMobile, setIsMobile] = useState(false);
@@ -56,11 +58,21 @@ export default function Admin() {
 
   // Cargar preguntas
   useEffect(() => {
-    fetch('/api/questions')
-      .then((res) => res.json())
-      .then((data) => setQuestions(data))
-      .catch((err) => console.error("Error fetching questions:", err));
-  }, []);
+    console.log("Admin.jsx: Intentando obtener preguntas desde:", `${API_URL}/api/questions`);
+
+    fetch(`${API_URL}/api/questions`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('La respuesta de la red no fue exitosa. Estado: ' + res.status);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Admin.jsx: ¡Éxito! Preguntas recibidas:", data);
+        setQuestions(data);
+      })
+      .catch((err) => console.error("Error definitivo al obtener preguntas en Admin.jsx:", err));
+  }, []); 
 
   // Socket setup (manteniendo funcionalidad original)
   useEffect(() => {
