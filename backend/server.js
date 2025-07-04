@@ -142,7 +142,7 @@ const haveAllPlayersAnswered = (game) => {
 // Definir emitQuestion como una función independiente
 const emitQuestion = async (game, questionIndex) => {
   if (questionIndex >= game.questions.length) {
-    endGame(game, game.pin);
+    setTimeout(() => endGame(game, game.pin), 1000);
     return;
   }
 
